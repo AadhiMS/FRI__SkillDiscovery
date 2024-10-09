@@ -75,15 +75,13 @@ class Args:
 
 
 def make_env(env_id, idx, capture_video=False, run_name="your_run_name"):
-    # Define your environment setup here, possibly including the idx for seeding or naming
     def _init():
         env = gym.make(env_id)
-        env.seed(idx)  # Use idx to seed the environment for reproducibility
+        # Remove the seeding line if the environment does not support it
+        # env.unwrapped.seed(idx)  # Use idx to seed the environment for reproducibility
         if capture_video:
-            # Setup video recording if desired (adjust as needed)
             env = Monitor(env, f"videos/{run_name}_{idx}", video_callable=lambda episode_id: True)
         return env
-    
     return _init
 
 
