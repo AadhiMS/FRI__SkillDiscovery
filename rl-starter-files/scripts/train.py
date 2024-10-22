@@ -154,56 +154,83 @@ if __name__ == "__main__":
     update = status["update"]
     start_time = time.time()
 
-    while num_frames < args.frames:
-        # Update model parameters
-        update_start_time = time.time()
-        exps, logs1 = algo.collect_experiences()
-        logs2 = algo.update_parameters(exps)
-        logs = {**logs1, **logs2}
-        update_end_time = time.time()
+    if args.algo == "DIAYNAlgo": #Lets make our own run process
+        while num_frames < args.frames:
+            # Update model parameters
+            update_start_time = time.time()
+            exps, logs1 = algo.collect_experiences()
 
-        num_frames += logs["num_frames"]
-        update += 1
+            # Log the size of the memory buffer
+            txt_logger.info(f"Memory size after collecting experiences: {len(algo.DIAYNmemory)}")
+
+            logs2 = algo.update_parameters() 
+            if logs2 is None:
+                txt_logger.info(f"Skipping update {update} due to insufficient memory.")
+                continue
+
+            logs = {**logs1, **logs2}
+            update_end_time = time.time()
+
+            num_frames += logs["num_frames"]
+            update += 1
 
         # Print logs
-
         if update % args.log_interval == 0:
             fps = logs["num_frames"] / (update_end_time - update_start_time)
             duration = int(time.time() - start_time)
             return_per_episode = utils.synthesize(logs["return_per_episode"])
-            rreturn_per_episode = utils.synthesize(logs["reshaped_return_per_episode"])
-            num_frames_per_episode = utils.synthesize(logs["num_frames_per_episode"])
+            txt_logger.info(f"Update {update}, FPS {fps}, Duration {duration}s, Return per episode {return_per_episode}") 
+    else: 
+        while num_frames < args.frames:
+            # Update model parameters
+            update_start_time = time.time()
+            exps, logs1 = algo.collect_experiences()
+            logs2 = algo.update_parameters(exps) 
+            logs = {**logs1, **logs2}
+            update_end_time = time.time()
 
-            header = ["update", "frames", "FPS", "duration"]
-            data = [update, num_frames, fps, duration]
-            header += ["rreturn_" + key for key in rreturn_per_episode.keys()]
-            data += rreturn_per_episode.values()
-            header += ["num_frames_" + key for key in num_frames_per_episode.keys()]
-            data += num_frames_per_episode.values()
-            header += ["entropy", "value", "policy_loss", "value_loss", "grad_norm"]
-            data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
+            num_frames += logs["num_frames"]
+            update += 1
 
-            txt_logger.info(
-                "U {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
-                .format(*data))
+            # Print logs
 
-            header += ["return_" + key for key in return_per_episode.keys()]
-            data += return_per_episode.values()
+            if update % args.log_interval == 0:
+                fps = logs["num_frames"] / (update_end_time - update_start_time)
+                duration = int(time.time() - start_time)
+                return_per_episode = utils.synthesize(logs["return_per_episode"])
+                rreturn_per_episode = utils.synthesize(logs["reshaped_return_per_episode"])
+                num_frames_per_episode = utils.synthesize(logs["num_frames_per_episode"])
 
-            if status["num_frames"] == 0:
-                csv_logger.writerow(header)
-            csv_logger.writerow(data)
-            csv_file.flush()
+                header = ["update", "frames", "FPS", "duration"]
+                data = [update, num_frames, fps, duration]
+                header += ["rreturn_" + key for key in rreturn_per_episode.keys()]
+                data += rreturn_per_episode.values()
+                header += ["num_frames_" + key for key in num_frames_per_episode.keys()]
+                data += num_frames_per_episode.values()
+                header += ["entropy", "value", "policy_loss", "value_loss", "grad_norm"]
+                data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
 
-            for field, value in zip(header, data):
-                tb_writer.add_scalar(field, value, num_frames)
+                txt_logger.info(
+                    "U {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
+                    .format(*data))
 
-        # Save status
+                header += ["return_" + key for key in return_per_episode.keys()]
+                data += return_per_episode.values()
 
-        if args.save_interval > 0 and update % args.save_interval == 0:
-            status = {"num_frames": num_frames, "update": update,
-                      "model_state": acmodel.state_dict(), "optimizer_state": algo.optimizer.state_dict()}
-            if hasattr(preprocess_obss, "vocab"):
-                status["vocab"] = preprocess_obss.vocab.vocab
-            utils.save_status(status, model_dir)
-            txt_logger.info("Status saved")
+                if status["num_frames"] == 0:
+                    csv_logger.writerow(header)
+                csv_logger.writerow(data)
+                csv_file.flush()
+
+                for field, value in zip(header, data):
+                    tb_writer.add_scalar(field, value, num_frames)
+
+            # Save status
+
+            if args.save_interval > 0 and update % args.save_interval == 0:
+                status = {"num_frames": num_frames, "update": update,
+                        "model_state": acmodel.state_dict(), "optimizer_state": algo.optimizer.state_dict()}
+                if hasattr(preprocess_obss, "vocab"):
+                    status["vocab"] = preprocess_obss.vocab.vocab
+                utils.save_status(status, model_dir)
+                txt_logger.info("Status saved")

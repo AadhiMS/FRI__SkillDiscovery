@@ -1,4 +1,4 @@
-from model import PolicyNetwork, QvalueNetwork, ValueNetwork, Discriminator
+from Dmodel import PolicyNetwork, QvalueNetwork, ValueNetwork, Discriminator
 from replay_memory import Memory, Transition #.model and .algos replay memory are files from DIAYN code that need to be imported
 
 import numpy as np
@@ -18,8 +18,7 @@ class DIAYNAlgo(BaseAlgo):
 
         # Init base class
         super().__init__(envs, acmodel, device, num_frames_per_proc, discount, lr, gae_lambda,
-                         entropy_coef, value_loss_coef, max_grad_norm, recurrence, adam_eps,
-                         clip_eps, epochs, batch_size, preprocess_obss, reshape_reward)
+                         entropy_coef, value_loss_coef, max_grad_norm, recurrence, preprocess_obss, reshape_reward)
         
         # Additional init specific to SACAlgo
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,15 +26,16 @@ class DIAYNAlgo(BaseAlgo):
         self.optimizer = Adam(self.acmodel.parameters(), lr=lr, eps=adam_eps)
 
         # Initialize other components specific to SAC
-        self.memory = Memory(self.config["mem_size"], self.config["seed"])
+        self.DIAYNmemory = Memory(1000000, 9879870708) #Look into making dynamic mem_Size and seed later
         self.mse_loss = torch.nn.MSELoss()
         self.cross_ent_loss = torch.nn.CrossEntropyLoss()
+        self.batch_size = batch_size  # Ensure batch_size is properly initialized
 
     def update_parameters(self):
-        if len(self.memory) < self.batch_size:
+        if len(self.DIAYNmemory) < self.batch_size:
             return None
         else:
-            batch = self.memory.sample(self.batch_size)
+            batch = self.DIAYNmemory.sample(self.batch_size)
             states, zs, dones, actions, next_states = self.unpack(batch)
             p_z = torch.from_numpy(self.p_z).to(self.device)
 
@@ -133,7 +133,7 @@ class DIAYNAlgo(BaseAlgo):
         done = torch.BoolTensor([done]).to("cpu")
         action = torch.Tensor([action]).to("cpu")
         next_state = torch.from_numpy(next_state).float().to("cpu")
-        self.memory.add(state, z, done, action, next_state)
+        self.DIAYNmemory.add(state, z, done, action, next_state)
 
     def soft_update_target_network(self, local_network, target_network):
         for target_param, local_param in zip(target_network.parameters(), local_network.parameters()):
@@ -145,11 +145,11 @@ class DIAYNAlgo(BaseAlgo):
         self.value_target_network.eval()
 
     def get_rng_states(self):
-        return torch.get_rng_state(), self.memory.get_rng_state()
+        return torch.get_rng_state(), self.DIAYNmemory.get_rng_state()
 
     def set_rng_states(self, torch_rng_state, random_rng_state):
         torch.set_rng_state(torch_rng_state.to("cpu"))
-        self.memory.set_rng_state(random_rng_state)
+        self.DIAYNmemory.set_rng_state(random_rng_state)
 
     def set_policy_net_to_eval_mode(self):
         self.policy_network.eval()
