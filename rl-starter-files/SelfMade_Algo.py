@@ -30,6 +30,7 @@ class DIAYNAlgo(BaseAlgo):
         self.mse_loss = torch.nn.MSELoss()
         self.cross_ent_loss = torch.nn.CrossEntropyLoss()
         self.batch_size = batch_size  # Ensure batch_size is properly initialized
+        print(batch_size) #Debug Print
 
     def update_parameters(self):
         if len(self.DIAYNmemory) < self.batch_size:

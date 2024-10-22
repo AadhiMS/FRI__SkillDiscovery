@@ -8,6 +8,11 @@ from SelfMade_Algo import DIAYNAlgo
 import utils
 from utils import device
 from model import ACModel
+from logger import Logger
+from agent import SACAgent
+import numpy as np
+from tqdm import tqdm
+from torch_ac.utils import ParallelEnv
 
 
 
@@ -62,6 +67,7 @@ parser.add_argument("--recurrence", type=int, default=1,
                     help="number of time-steps gradient is backpropagated (default: 1). If > 1, a LSTM is added to the model to have memory.")
 parser.add_argument("--text", action="store_true", default=False,
                     help="add a GRU to the model to handle text input")
+parser.add_argument("--n_skills", default=50, type=int, help="The number of skills to learn.")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -79,6 +85,7 @@ if __name__ == "__main__":
     # Load loggers and Tensorboard writer
 
     txt_logger = utils.get_txt_logger(model_dir)
+    
     csv_file, csv_logger = utils.get_csv_logger(model_dir)
     tb_writer = tensorboardX.SummaryWriter(model_dir)
 
@@ -137,9 +144,24 @@ if __name__ == "__main__":
                                 args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
                                 args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)
     elif args.algo == "DIAYNAlgo":
-        algo = DIAYNAlgo(envs, acmodel, device, args.frames_per_proc, args.discount, args.lr, args.gae_lambda,
+        """algo = DIAYNAlgo(envs, acmodel, device, args.frames_per_proc, args.discount, args.lr, args.gae_lambda,
                                 args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
-                                args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)
+                                args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)"""
+        env = ParallelEnv(envs)
+        default_params = {"lr": 3e-4,
+                      "batch_size": 256,
+                      "max_n_episodes": 5000,
+                      "max_episode_len": 1000,
+                      "gamma": 0.99,
+                      "alpha": 0.1,
+                      "tau": 0.005,
+                      "n_hiddens": 300
+                      }
+        # endregion
+        params = {**vars(args), **default_params}
+        p_z = np.full(params["n_skills"], 1 / params["n_skills"])
+        agent = SACAgent(p_z=p_z, **params)
+        logger = Logger(agent, **params)
 
     else:
         raise ValueError("Incorrect algorithm name: {}".format(args.algo))
@@ -155,6 +177,7 @@ if __name__ == "__main__":
     start_time = time.time()
 
     if args.algo == "DIAYNAlgo": #Lets make our own run process
+        """
         while num_frames < args.frames:
             # Update model parameters
             update_start_time = time.time()
@@ -180,6 +203,72 @@ if __name__ == "__main__":
             duration = int(time.time() - start_time)
             return_per_episode = utils.synthesize(logs["return_per_episode"])
             txt_logger.info(f"Update {update}, FPS {fps}, Duration {duration}s, Return per episode {return_per_episode}") 
+    """
+        
+        def concat_state_latent(s, z_, n):
+            z_one_hot = np.zeros(n)
+            z_one_hot[z_] = 1
+            return np.concatenate([s, z_one_hot])
+
+        if not params["train_from_scratch"]:
+            episode, last_logq_zs, np_rng_state, *env_rng_states, torch_rng_state, random_rng_state = logger.load_weights()
+            agent.hard_update_target_network()
+            min_episode = episode
+            np.random.set_state(np_rng_state)
+            env.np_random.set_state(env_rng_states[0])
+            env.observation_space.np_random.set_state(env_rng_states[1])
+            env.action_space.np_random.set_state(env_rng_states[2])
+            agent.set_rng_states(torch_rng_state, random_rng_state)
+            print("Keep training from previous run.")
+
+        else:
+            min_episode = 0
+            last_logq_zs = 0
+            np.random.seed(params["seed"])
+            env.seed(params["seed"])
+            env.observation_space.seed(params["seed"])
+            env.action_space.seed(params["seed"])
+            print("Training from scratch.")
+
+        
+        
+        logger.on()
+        for episode in tqdm(range(1 + min_episode, params["max_n_episodes"] + 1)):
+            z = np.random.choice(params["n_skills"], p=p_z)
+            state = env.reset()
+            state = concat_state_latent(state, z, params["n_skills"])
+            episode_reward = 0
+            logq_zses = []
+
+            max_n_steps = min(params["max_episode_len"], env.spec.max_episode_steps)
+            for step in range(1, 1 + max_n_steps):
+
+                action = agent.choose_action(state)
+                next_state, reward, done, _ = env.step(action)
+                next_state = concat_state_latent(next_state, z, params["n_skills"])
+                agent.store(state, z, done, action, next_state)
+                logq_zs = agent.train()
+                if logq_zs is None:
+                    logq_zses.append(last_logq_zs)
+                else:
+                    logq_zses.append(logq_zs)
+                episode_reward += reward
+                state = next_state
+                if done:
+                    break
+
+            logger.log(episode,
+                       episode_reward,
+                       z,
+                       sum(logq_zses) / len(logq_zses),
+                       step,
+                       np.random.get_state(),
+                       env.np_random.get_state(),
+                       env.observation_space.np_random.get_state(),
+                       env.action_space.np_random.get_state(),
+                       *agent.get_rng_states(),
+                       )
+
     else: 
         while num_frames < args.frames:
             # Update model parameters
