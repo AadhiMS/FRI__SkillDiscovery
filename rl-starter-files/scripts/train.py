@@ -13,6 +13,12 @@ from agent import SACAgent
 import numpy as np
 from tqdm import tqdm
 from torch_ac.utils import ParallelEnv
+import gym as gym 
+from gymnasium.wrappers import FlattenObservation
+from minigrid.wrappers import DictObservationSpaceWrapper
+from minigrid.wrappers import FlatObsWrapper
+
+# Notes Log: I added the def get_params(): under the parser arguments but not it seems that the code cannot pick up any of the arguments from the command placed in the terminal 
 
 
 
@@ -20,56 +26,59 @@ from torch_ac.utils import ParallelEnv
 
 parser = argparse.ArgumentParser()
 
+def get_params():
 # General parameters
-parser.add_argument("--algo", required=True,
-                    help="algorithm to use: a2c | ppo (REQUIRED)")
-parser.add_argument("--env", required=True,
-                    help="name of the environment to train on (REQUIRED)")
-parser.add_argument("--model", default=None,
-                    help="name of the model (default: {ENV}_{ALGO}_{TIME})")
-parser.add_argument("--seed", type=int, default=1,
-                    help="random seed (default: 1)")
-parser.add_argument("--log-interval", type=int, default=1,
-                    help="number of updates between two logs (default: 1)")
-parser.add_argument("--save-interval", type=int, default=10,
-                    help="number of updates between two saves (default: 10, 0 means no saving)")
-parser.add_argument("--procs", type=int, default=16,
-                    help="number of processes (default: 16)")
-parser.add_argument("--frames", type=int, default=10**7,
-                    help="number of frames of training (default: 1e7)")
+    parser.add_argument("--algo", required=True,
+                        help="algorithm to use: a2c | ppo (REQUIRED)")
+    parser.add_argument("--env", required=True,
+                        help="name of the environment to train on (REQUIRED)")
+    parser.add_argument("--model", default=None,
+                        help="name of the model (default: {ENV}_{ALGO}_{TIME})")
+    parser.add_argument("--seed", type=int, default=1,
+                        help="random seed (default: 1)")
+    parser.add_argument("--log-interval", type=int, default=1,
+                        help="number of updates between two logs (default: 1)")
+    parser.add_argument("--save-interval", type=int, default=10,
+                        help="number of updates between two saves (default: 10, 0 means no saving)")
+    parser.add_argument("--procs", type=int, default=16,
+                        help="number of processes (default: 16)")
+    parser.add_argument("--frames", type=int, default=10**7,
+                        help="number of frames of training (default: 1e7)")
 
-# Parameters for main algorithm
-parser.add_argument("--epochs", type=int, default=4,
-                    help="number of epochs for PPO (default: 4)")
-parser.add_argument("--batch-size", type=int, default=256,
-                    help="batch size for PPO (default: 256)")
-parser.add_argument("--frames-per-proc", type=int, default=None,
-                    help="number of frames per process before update (default: 5 for A2C and 128 for PPO)")
-parser.add_argument("--discount", type=float, default=0.99,
-                    help="discount factor (default: 0.99)")
-parser.add_argument("--lr", type=float, default=0.001,
-                    help="learning rate (default: 0.001)")
-parser.add_argument("--gae-lambda", type=float, default=0.95,
-                    help="lambda coefficient in GAE formula (default: 0.95, 1 means no gae)")
-parser.add_argument("--entropy-coef", type=float, default=0.01,
-                    help="entropy term coefficient (default: 0.01)")
-parser.add_argument("--value-loss-coef", type=float, default=0.5,
-                    help="value loss term coefficient (default: 0.5)")
-parser.add_argument("--max-grad-norm", type=float, default=0.5,
-                    help="maximum norm of gradient (default: 0.5)")
-parser.add_argument("--optim-eps", type=float, default=1e-8,
-                    help="Adam and RMSprop optimizer epsilon (default: 1e-8)")
-parser.add_argument("--optim-alpha", type=float, default=0.99,
-                    help="RMSprop optimizer alpha (default: 0.99)")
-parser.add_argument("--clip-eps", type=float, default=0.2,
-                    help="clipping epsilon for PPO (default: 0.2)")
-parser.add_argument("--recurrence", type=int, default=1,
-                    help="number of time-steps gradient is backpropagated (default: 1). If > 1, a LSTM is added to the model to have memory.")
-parser.add_argument("--text", action="store_true", default=False,
-                    help="add a GRU to the model to handle text input")
-parser.add_argument("--n_skills", default=50, type=int, help="The number of skills to learn.")
+    # Parameters for main algorithm
+    parser.add_argument("--epochs", type=int, default=4,
+                        help="number of epochs for PPO (default: 4)")
+    parser.add_argument("--batch-size", type=int, default=256,
+                        help="batch size for PPO (default: 256)")
+    parser.add_argument("--frames-per-proc", type=int, default=None,
+                        help="number of frames per process before update (default: 5 for A2C and 128 for PPO)")
+    parser.add_argument("--discount", type=float, default=0.99,
+                        help="discount factor (default: 0.99)")
+    parser.add_argument("--lr", type=float, default=0.001,
+                        help="learning rate (default: 0.001)")
+    parser.add_argument("--gae-lambda", type=float, default=0.95,
+                        help="lambda coefficient in GAE formula (default: 0.95, 1 means no gae)")
+    parser.add_argument("--entropy-coef", type=float, default=0.01,
+                        help="entropy term coefficient (default: 0.01)")
+    parser.add_argument("--value-loss-coef", type=float, default=0.5,
+                        help="value loss term coefficient (default: 0.5)")
+    parser.add_argument("--max-grad-norm", type=float, default=0.5,
+                        help="maximum norm of gradient (default: 0.5)")
+    parser.add_argument("--optim-eps", type=float, default=1e-8,
+                        help="Adam and RMSprop optimizer epsilon (default: 1e-8)")
+    parser.add_argument("--optim-alpha", type=float, default=0.99,
+                        help="RMSprop optimizer alpha (default: 0.99)")
+    parser.add_argument("--clip-eps", type=float, default=0.2,
+                        help="clipping epsilon for PPO (default: 0.2)")
+    parser.add_argument("--recurrence", type=int, default=1,
+                        help="number of time-steps gradient is backpropagated (default: 1). If > 1, a LSTM is added to the model to have memory.")
+    parser.add_argument("--text", action="store_true", default=False,
+                        help="add a GRU to the model to handle text input")
+    parser.add_argument("--mem_size", default=int(1e+6), type = int, help = "The memory size (for DIAYN).")
+    parser.add_argument("--n_skills", default=50, type=int, help="The number of skills to learn (for DIAYN).")
 
 if __name__ == "__main__":
+    get_params()
     args = parser.parse_args()
 
     args.mem = args.recurrence > 1
@@ -147,7 +156,8 @@ if __name__ == "__main__":
         """algo = DIAYNAlgo(envs, acmodel, device, args.frames_per_proc, args.discount, args.lr, args.gae_lambda,
                                 args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
                                 args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)"""
-        env = ParallelEnv(envs)
+        #env = ParallelEnv(envs)
+        params = vars(args)
         default_params = {"lr": 3e-4,
                       "batch_size": 256,
                       "max_n_episodes": 5000,
@@ -155,10 +165,26 @@ if __name__ == "__main__":
                       "gamma": 0.99,
                       "alpha": 0.1,
                       "tau": 0.005,
-                      "n_hiddens": 300
+                      "n_hiddens": 300,
+                      "n_states": 10
                       }
+        # NEW CODE FROM 10/23/24
+        #params = get_params()
+        test_env =  envs[0]  #gym.make(args["env_name"])
+        #breakpoint()
+        test_env = FlatObsWrapper(test_env)
+        
+        n_states = test_env.observation_space.shape[0]
+        breakpoint()
+        n_actions = test_env.action_space.n
+        action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
+
+        # params.update({"n_states": n_states,
+        #            "n_actions": n_actions,
+        #            "action_bounds": action_bounds})
         # endregion
-        params = {**vars(args), **default_params}
+        params = {**default_params, **params}
+        #params = {**vars(args), **default_params} #Old code, replaced with line above
         p_z = np.full(params["n_skills"], 1 / params["n_skills"])
         agent = SACAgent(p_z=p_z, **params)
         logger = Logger(agent, **params)
@@ -210,7 +236,7 @@ if __name__ == "__main__":
             z_one_hot[z_] = 1
             return np.concatenate([s, z_one_hot])
 
-        if not params["train_from_scratch"]:
+        if False: #not params["train_from_scratch"]:
             episode, last_logq_zs, np_rng_state, *env_rng_states, torch_rng_state, random_rng_state = logger.load_weights()
             agent.hard_update_target_network()
             min_episode = episode
@@ -225,9 +251,9 @@ if __name__ == "__main__":
             min_episode = 0
             last_logq_zs = 0
             np.random.seed(params["seed"])
-            env.seed(params["seed"])
-            env.observation_space.seed(params["seed"])
-            env.action_space.seed(params["seed"])
+            test_env.seed(params["seed"])
+            test_env.observation_space.seed(params["seed"])
+            test_env.action_space.seed(params["seed"])
             print("Training from scratch.")
 
         
@@ -235,16 +261,16 @@ if __name__ == "__main__":
         logger.on()
         for episode in tqdm(range(1 + min_episode, params["max_n_episodes"] + 1)):
             z = np.random.choice(params["n_skills"], p=p_z)
-            state = env.reset()
+            state = test_env.reset()
             state = concat_state_latent(state, z, params["n_skills"])
             episode_reward = 0
             logq_zses = []
 
-            max_n_steps = min(params["max_episode_len"], env.spec.max_episode_steps)
+            max_n_steps = min(params["max_episode_len"], test_env.spec.max_episode_steps)
             for step in range(1, 1 + max_n_steps):
 
                 action = agent.choose_action(state)
-                next_state, reward, done, _ = env.step(action)
+                next_state, reward, done, _ = test_env.step(action)
                 next_state = concat_state_latent(next_state, z, params["n_skills"])
                 agent.store(state, z, done, action, next_state)
                 logq_zs = agent.train()
@@ -263,9 +289,9 @@ if __name__ == "__main__":
                        sum(logq_zses) / len(logq_zses),
                        step,
                        np.random.get_state(),
-                       env.np_random.get_state(),
-                       env.observation_space.np_random.get_state(),
-                       env.action_space.np_random.get_state(),
+                       test_env.np_random.get_state(),
+                       test_env.observation_space.np_random.get_state(),
+                       test_env.action_space.np_random.get_state(),
                        *agent.get_rng_states(),
                        )
 
