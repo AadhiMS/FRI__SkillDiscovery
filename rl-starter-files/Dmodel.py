@@ -3,7 +3,10 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.distributions import Normal
+from torch.distributions import Categorical
 
+
+# Model from DIAYN Code
 
 def init_weight(layer, initializer="he normal"):
     if initializer == "xavier uniform":
@@ -53,6 +56,7 @@ class ValueNetwork(nn.Module, ABC):
         self.value.bias.data.zero_()
 
     def forward(self, states):
+        breakpoint()
         x = F.relu(self.hidden1(states))
         x = F.relu(self.hidden2(x))
         return self.value(x)
@@ -65,7 +69,7 @@ class QvalueNetwork(nn.Module, ABC):
         self.n_hidden_filters = n_hidden_filters
         self.n_actions = n_actions
 
-        self.hidden1 = nn.Linear(in_features=self.n_states + self.n_actions, out_features=self.n_hidden_filters)
+        self.hidden1 = nn.Linear(in_features=self.n_states + 1, out_features=self.n_hidden_filters)
         init_weight(self.hidden1)
         self.hidden1.bias.data.zero_()
         self.hidden2 = nn.Linear(in_features=self.n_hidden_filters, out_features=self.n_hidden_filters)
@@ -76,6 +80,7 @@ class QvalueNetwork(nn.Module, ABC):
         self.q_value.bias.data.zero_()
 
     def forward(self, states, actions):
+        breakpoint()
         x = torch.cat([states, actions], dim=1)
         x = F.relu(self.hidden1(x))
         x = F.relu(self.hidden2(x))
@@ -83,12 +88,13 @@ class QvalueNetwork(nn.Module, ABC):
 
 
 class PolicyNetwork(nn.Module, ABC):
-    def __init__(self, n_states, n_actions, action_bounds, n_hidden_filters=256):
+    def __init__(self, n_states, n_actions, #action_bounds, 
+                 n_hidden_filters=256):
         super(PolicyNetwork, self).__init__()
         self.n_states = n_states
         self.n_hidden_filters = n_hidden_filters
         self.n_actions = n_actions
-        self.action_bounds = action_bounds
+        #self.action_bounds = action_bounds
 
         self.hidden1 = nn.Linear(in_features=self.n_states, out_features=self.n_hidden_filters)
         init_weight(self.hidden1)
@@ -106,22 +112,38 @@ class PolicyNetwork(nn.Module, ABC):
         self.log_std.bias.data.zero_()
 
     def forward(self, states):
+        #x = F.relu(self.hidden1(states))
+        #x = F.relu(self.hidden2(x))
+
+        #logits = self.logits(x); 
+        #dist = Categorical(logits=logits)
+        #return dist 
+
+        # Old forward function 
         x = F.relu(self.hidden1(states))
         x = F.relu(self.hidden2(x))
 
         mu = self.mu(x)
         log_std = self.log_std(x)
         std = log_std.clamp(min=-20, max=2).exp()
-        dist = Normal(mu, std)
+        dist = Categorical(logits=F.log_softmax(mu, dim=1))
         return dist
 
     def sample_or_likelihood(self, states):
+        breakpoint()
         dist = self(states)
         # Reparameterization trick
-        u = dist.rsample()
-        action = torch.tanh(u)
-        log_prob = dist.log_prob(value=u)
+        #u = dist.rsample()
+        #action = torch.tanh(u)
+        action = dist.sample()
+        #log_prob = dist.log_prob(value=u)
+        log_prob = dist.log_prob(action)
         # Enforcing action bounds
-        log_prob -= torch.log(1 - action ** 2 + 1e-6)
-        log_prob = log_prob.sum(-1, keepdim=True)
-        return (action * self.action_bounds[1]).clamp_(self.action_bounds[0], self.action_bounds[1]), log_prob
+        #log_prob -= torch.log(1 - action ** 2 + 1e-6)
+        #log_prob = log_prob.sum(-1, keepdim=True)
+        #log_prob = dist.log_prob(action)
+        #Old line: return (action * self.action_bounds[1]).clamp_(self.action_bounds[0], self.action_bounds[1]), log_prob
+        #breakpoint()
+        #return action.item(), log_prob
+        return action.unsqueeze(-1), log_prob
+    
