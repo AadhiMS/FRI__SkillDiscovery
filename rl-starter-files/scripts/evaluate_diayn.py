@@ -1,7 +1,7 @@
 import gym
 from agent import SACAgent
 from logger import Logger
-from train import get_params
+from scripts.train import get_params
 import play
 #from Common import Play, Logger, get_params
 import numpy as np
