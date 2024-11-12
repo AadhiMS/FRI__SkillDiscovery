@@ -14,9 +14,9 @@ import numpy as np
 from tqdm import tqdm
 from torch_ac.utils import ParallelEnv
 import gym as gym 
-from gymnasium.wrappers import FlattenObservation
-from minigrid.wrappers import DictObservationSpaceWrapper
-from minigrid.wrappers import FlatObsWrapper
+#from gymnasium.wrappers import FlattenObservation
+#from minigrid.wrappers import DictObservationSpaceWrapper
+from minigrid.wrappers import FlatObsWrapper, ReseedWrapper
 
 # Notes Log: I added the def get_params(): under the parser arguments but not it seems that the code cannot pick up any of the arguments from the command placed in the terminal 
 
@@ -166,23 +166,29 @@ if __name__ == "__main__":
                       "alpha": 0.1,
                       "tau": 0.005,
                       "n_hiddens": 300,
-                      "n_states": 10
+                      "n_states": 10,
+                      "interval": 3,
+                      "reward_scale": 1 #Note: Set this custom, need to double checl with mentor
                       }
         # NEW CODE FROM 10/23/24
         #params = get_params()
         test_env =  envs[0]  #gym.make(args["env_name"])
         #breakpoint()
         test_env = FlatObsWrapper(test_env)
+        test_env = ReseedWrapper(test_env, seeds=(params["seed"], )  )
         
         n_states = test_env.observation_space.shape[0]
-        breakpoint()
+        #breakpoint()
         n_actions = test_env.action_space.n
-        action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
+        #action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
-        # params.update({"n_states": n_states,
-        #            "n_actions": n_actions,
-        #            "action_bounds": action_bounds})
-        # endregion
+        params.update({"n_states": n_states,
+                "n_actions": n_actions,
+                "env_name": params["env"],
+                "do_train": True,
+                "train_from_scratch": False})
+        #endregion
+        #breakpoint()
         params = {**default_params, **params}
         #params = {**vars(args), **default_params} #Old code, replaced with line above
         p_z = np.full(params["n_skills"], 1 / params["n_skills"])
@@ -232,8 +238,11 @@ if __name__ == "__main__":
     """
         
         def concat_state_latent(s, z_, n):
+            
             z_one_hot = np.zeros(n)
             z_one_hot[z_] = 1
+            #breakpoint()
+            #print(s.shape, z_one_hot.shape)
             return np.concatenate([s, z_one_hot])
 
         if False: #not params["train_from_scratch"]:
@@ -251,7 +260,7 @@ if __name__ == "__main__":
             min_episode = 0
             last_logq_zs = 0
             np.random.seed(params["seed"])
-            test_env.seed(params["seed"])
+            #test_env.unwrapped.seed(params["seed"])
             test_env.observation_space.seed(params["seed"])
             test_env.action_space.seed(params["seed"])
             print("Training from scratch.")
@@ -261,16 +270,18 @@ if __name__ == "__main__":
         logger.on()
         for episode in tqdm(range(1 + min_episode, params["max_n_episodes"] + 1)):
             z = np.random.choice(params["n_skills"], p=p_z)
-            state = test_env.reset()
+            state = test_env.reset()[0]
             state = concat_state_latent(state, z, params["n_skills"])
             episode_reward = 0
             logq_zses = []
-
-            max_n_steps = min(params["max_episode_len"], test_env.spec.max_episode_steps)
+            #breakpoint()
+            #max_n_steps = min(params["max_episode_len"], test_env.spec.max_episode_steps)
+            max_n_steps = params["max_episode_len"]
             for step in range(1, 1 + max_n_steps):
 
                 action = agent.choose_action(state)
-                next_state, reward, done, _ = test_env.step(action)
+                #next_state, reward, done, _ = test_env.step(action)
+                next_state, reward, done, truncated, _ = test_env.step(action)  # Update to handle 5 values
                 next_state = concat_state_latent(next_state, z, params["n_skills"])
                 agent.store(state, z, done, action, next_state)
                 logq_zs = agent.train()
@@ -288,11 +299,11 @@ if __name__ == "__main__":
                        z,
                        sum(logq_zses) / len(logq_zses),
                        step,
-                       np.random.get_state(),
-                       test_env.np_random.get_state(),
-                       test_env.observation_space.np_random.get_state(),
-                       test_env.action_space.np_random.get_state(),
-                       *agent.get_rng_states(),
+                       0,
+                       0,
+                       0,
+                       0,
+                       0,
                        )
 
     else: 
