@@ -2,11 +2,11 @@ import gym
 from agent import SACAgent
 from logger import Logger
 from scripts.train import get_params
-import scripts.play
+from scripts.play import Play
 #from Common import Play, Logger, get_params
 import numpy as np
 from tqdm import tqdm
-import mujoco_py
+#import mujoco_py
 
 
 def concat_state_latent(s, z_, n):
