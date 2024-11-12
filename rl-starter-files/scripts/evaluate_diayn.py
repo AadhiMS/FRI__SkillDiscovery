@@ -16,7 +16,8 @@ def concat_state_latent(s, z_, n):
 
 
 if __name__ == "__main__":
-    params = get_params()
+    params = vars(get_params().parse_args())
+
 
     test_env = gym.make(params["env_name"])
     n_states = test_env.observation_space.shape[0]
