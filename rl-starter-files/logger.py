@@ -91,6 +91,10 @@ class Logger:
         self.on()
 
     def _save_weights(self, episode, *rng_states):
+        #os dir code made by me
+        checkpoint_dir = os.path.join("Checkpoints", self.log_dir)
+        os.makedirs(checkpoint_dir, exist_ok=True)
+
         torch.save({"policy_network_state_dict": self.agent.policy_network.state_dict(),
                     "q_value_network1_state_dict": self.agent.q_value_network1.state_dict(),
                     "q_value_network2_state_dict": self.agent.q_value_network2.state_dict(),
@@ -106,7 +110,8 @@ class Logger:
                     "max_episode_reward": self.max_episode_reward,
                     "running_logq_zs": self.running_logq_zs
                     },
-                   "Checkpoints/" + self.log_dir + "/params.pth")
+                   #"Checkpoints/" + self.log_dir + "/params.pth"
+                   os.path.join(checkpoint_dir, "params.pth"))
 
     def load_weights(self):
         model_dir = glob.glob("Checkpoints/" + self.config["env_name"][:-3] + "/")

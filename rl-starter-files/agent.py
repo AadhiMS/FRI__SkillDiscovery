@@ -75,7 +75,8 @@ class SACAgent:
         states = torch.cat(batch.state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)
         zs = torch.cat(batch.z).view(self.batch_size, 1).long().to(self.device)
         dones = torch.cat(batch.done).view(self.batch_size, 1).to(self.device)
-        actions = torch.cat(batch.action).view(-1, self.config["n_actions"]).to(self.device)
+        #actions = torch.cat(batch.action).view(-1, self.config["n_actions"]).to(self.device)
+        actions = torch.cat(batch.action).view(self.batch_size, 1).to(self.device)  # Ensure actions are correctly shaped
         next_states = torch.cat(batch.next_state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)
 
         return states, zs, dones, actions, next_states
@@ -93,9 +94,10 @@ class SACAgent:
             q1 = self.q_value_network1(states, reparam_actions)
             q2 = self.q_value_network2(states, reparam_actions)
             q = torch.min(q1, q2)
-            target_value = q.detach() - self.config["alpha"] * log_probs.detach()
-
+            target_value = q.detach().squeeze() - self.config["alpha"] * log_probs.detach() #error from this line
             value = self.value_network(states)
+            #breakpoint()
+            # 256x1 vs 256x256 error coming from the line below this, specifically target_value
             value_loss = self.mse_loss(value, target_value)
 
             logits = self.discriminator(torch.split(next_states, [self.n_states, self.n_skills], dim=-1)[0])

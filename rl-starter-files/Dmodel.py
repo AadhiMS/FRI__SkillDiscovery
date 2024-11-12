@@ -56,7 +56,7 @@ class ValueNetwork(nn.Module, ABC):
         self.value.bias.data.zero_()
 
     def forward(self, states):
-        breakpoint()
+        #breakpoint()
         x = F.relu(self.hidden1(states))
         x = F.relu(self.hidden2(x))
         return self.value(x)
@@ -80,7 +80,7 @@ class QvalueNetwork(nn.Module, ABC):
         self.q_value.bias.data.zero_()
 
     def forward(self, states, actions):
-        breakpoint()
+        #breakpoint()
         x = torch.cat([states, actions], dim=1)
         x = F.relu(self.hidden1(x))
         x = F.relu(self.hidden2(x))
@@ -130,7 +130,7 @@ class PolicyNetwork(nn.Module, ABC):
         return dist
 
     def sample_or_likelihood(self, states):
-        breakpoint()
+        #breakpoint()
         dist = self(states)
         # Reparameterization trick
         #u = dist.rsample()
