@@ -2,7 +2,7 @@ import gym
 from agent import SACAgent
 from logger import Logger
 from scripts.train import get_params
-import play
+import scripts.play
 #from Common import Play, Logger, get_params
 import numpy as np
 from tqdm import tqdm
