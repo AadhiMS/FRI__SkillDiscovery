@@ -24,10 +24,12 @@ from minigrid.wrappers import FlatObsWrapper, ReseedWrapper
 
 # Parse arguments
 
-parser = argparse.ArgumentParser()
+
 
 def get_params():
 # General parameters
+    parser = argparse.ArgumentParser()
+
     parser.add_argument("--algo", required=True,
                         help="algorithm to use: a2c | ppo (REQUIRED)")
     parser.add_argument("--env", required=True,
@@ -77,9 +79,11 @@ def get_params():
     parser.add_argument("--mem_size", default=int(1e+6), type = int, help = "The memory size (for DIAYN).")
     parser.add_argument("--n_skills", default=50, type=int, help="The number of skills to learn (for DIAYN).")
 
+    return parser
+
 if __name__ == "__main__":
-    get_params()
-    args = parser.parse_args()
+    
+    args = get_params().parse_args()
 
     args.mem = args.recurrence > 1
 
