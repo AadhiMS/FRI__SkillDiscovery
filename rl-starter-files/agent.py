@@ -18,7 +18,7 @@ class SACAgent:
         self.n_skills = self.config["n_skills"]
         self.batch_size = self.config["batch_size"]
         self.p_z = np.tile(p_z, self.batch_size).reshape(self.batch_size, self.n_skills)
-        self.memory = Memory(self.config["mem_size"], self.config["seed"])
+        self.memory = Memory(self.config["mem_size"]*0.32, self.config["seed"]) # Added *0.32 on my own to fix buffer size issue, 11/13/2024
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         torch.manual_seed(self.config["seed"])
