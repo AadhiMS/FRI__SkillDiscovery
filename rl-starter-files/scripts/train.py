@@ -172,7 +172,8 @@ if __name__ == "__main__":
                       "n_hiddens": 300,
                       "n_states": 10,
                       "interval": 3,
-                      "reward_scale": 1 #Note: Set this custom, need to double checl with mentor
+                      "reward_scale": 1, #Note: Set this custom, need to double checl with mentor
+                      "mem_size": 100000 #Ive set this myself, 11/13/2024
                       }
         # NEW CODE FROM 10/23/24
         #params = get_params()
