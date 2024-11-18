@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 from agent import SACAgent
 from logger import Logger
 #from scripts.train import get_params
@@ -7,6 +7,8 @@ from scripts.play import Play
 import numpy as np
 import argparse
 from tqdm import tqdm
+from minigrid.wrappers import FlatObsWrapper, ReseedWrapper
+
 #import mujoco_py
 
 def get_params():
@@ -26,6 +28,9 @@ def get_params():
     parser.add_argument("--reward_scale", default=1, type=float, help="The reward scaling factor introduced in SAC.")
     parser.add_argument("--seed", default=123, type=int,
                         help="The randomness' seed for torch, numpy, random & gym[env].")
+    
+    parser.add_argument("--n_episodes", default=5000, type=int,
+                        help="The number of episodes to play")
 
     parser_params = parser.parse_args()
 
@@ -56,18 +61,22 @@ if __name__ == "__main__":
 
 
     test_env = gym.make(params["env_name"])
+    test_env = FlatObsWrapper(test_env)
+    test_env = ReseedWrapper(test_env, seeds=(params["seed"], )  )
+
     n_states = test_env.observation_space.shape[0]
-    n_actions = test_env.action_space.shape[0]
-    action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
+    n_actions = test_env.action_space.n
+    # action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
     params.update({"n_states": n_states,
-                   "n_actions": n_actions,
-                   "action_bounds": action_bounds})
+                   "n_actions": n_actions})
     print("params:", params)
     test_env.close()
-    del test_env, n_states, n_actions, action_bounds
+    del test_env, n_states, n_actions
 
-    env = gym.make(params["env_name"])
+    env = gym.make(params["env_name"], render_mode="rgb_array")
+    env = FlatObsWrapper(env)
+    env = ReseedWrapper(env, seeds=(params["seed"], )  )
 
     p_z = np.full(params["n_skills"], 1 / params["n_skills"])
     agent = SACAgent(p_z=p_z, **params)
@@ -134,5 +143,5 @@ if __name__ == "__main__":
 
     else:
         logger.load_weights()
-        player = Play(env, agent, n_skills=params["n_skills"])
+        player = Play(env, agent, n_skills=params["n_skills"], n_episodes=params["n_episodes"])
         player.evaluate()

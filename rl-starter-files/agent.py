@@ -56,6 +56,7 @@ class SACAgent:
 
     def choose_action(self, states):
         states = np.expand_dims(states, axis=0)
+
         states = from_numpy(states).float().to(self.device)
         action, _ = self.policy_network.sample_or_likelihood(states)
         #return action.detach().cpu().numpy()[0]
