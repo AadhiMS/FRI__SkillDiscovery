@@ -77,8 +77,8 @@ def get_params():
     parser.add_argument("--text", action="store_true", default=False,
                         help="add a GRU to the model to handle text input")
     parser.add_argument("--mem_size", default=int(1e+6), type = int, help = "The memory size (for DIAYN).")
-    parser.add_argument("--n_skills", default=50, type=int, help="The number of skills to learn (for DIAYN).")
-
+    parser.add_argument("--n_skills", default=5, type=int, help="The number of skills to learn (for DIAYN).")
+#Changed default n skills from 50 to 5
     return parser
 
 if __name__ == "__main__":
@@ -173,7 +173,7 @@ if __name__ == "__main__":
                       "n_states": 10,
                       "interval": 3,
                       "reward_scale": 1, #Note: Set this custom, need to double checl with mentor
-                      "mem_size": 100000 #Ive set this myself, 11/13/2024
+                      #"mem_size": 10000 #Ive set this myself, 11/13/2024
                       }
         # NEW CODE FROM 10/23/24
         #params = get_params()
@@ -202,10 +202,11 @@ if __name__ == "__main__":
 
     else:
         raise ValueError("Incorrect algorithm name: {}".format(args.algo))
-
-    if "optimizer_state" in status:
-        algo.optimizer.load_state_dict(status["optimizer_state"])
-    txt_logger.info("Optimizer loaded\n")
+    
+    if (args.algo != "DIAYNAlgo"): 
+        if "optimizer_state" in status:
+            algo.optimizer.load_state_dict(status["optimizer_state"])
+        txt_logger.info("Optimizer loaded\n")
 
     # Train model
 
