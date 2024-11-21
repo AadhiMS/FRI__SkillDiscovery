@@ -77,8 +77,8 @@ def get_params():
     parser.add_argument("--text", action="store_true", default=False,
                         help="add a GRU to the model to handle text input")
     parser.add_argument("--mem_size", default=int(1e+6), type = int, help = "The memory size (for DIAYN).")
-    parser.add_argument("--n_skills", default=5, type=int, help="The number of skills to learn (for DIAYN).")
-#Changed default n skills from 50 to 5
+    parser.add_argument("--n_skills", default=50, type=int, help="The number of skills to learn (for DIAYN).")
+
     return parser
 
 if __name__ == "__main__":
