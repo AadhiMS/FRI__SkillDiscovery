@@ -104,29 +104,36 @@ class PolicyNetwork(nn.Module, ABC):
         self.hidden2.bias.data.zero_()
 
         self.mu = nn.Linear(in_features=self.n_hidden_filters, out_features=self.n_actions)
+        print(self.mu, "one")
         init_weight(self.mu, initializer="xavier uniform")
+        print(self.mu, "two")
         self.mu.bias.data.zero_()
+        print(self.mu, "three")
 
         self.log_std = nn.Linear(in_features=self.n_hidden_filters, out_features=self.n_actions)
         init_weight(self.log_std, initializer="xavier uniform")
         self.log_std.bias.data.zero_()
 
     def forward(self, states):
-        #x = F.relu(self.hidden1(states))
-        #x = F.relu(self.hidden2(x))
-
-        #logits = self.logits(x); 
-        #dist = Categorical(logits=logits)
-        #return dist 
-
-        # Old forward function 
         x = F.relu(self.hidden1(states))
         x = F.relu(self.hidden2(x))
 
         mu = self.mu(x)
         log_std = self.log_std(x)
         std = log_std.clamp(min=-20, max=2).exp()
-        dist = Categorical(logits=F.log_softmax(mu, dim=1))
+        dist = Normal(mu, std)
+        return dist
+
+        # Old forward function 
+        #x = F.relu(self.hidden1(states))
+        #x = F.relu(self.hidden2(x))
+
+        #mu = self.mu(x)
+        #log_std = self.log_std(x)
+        #std = log_std.clamp(min=-20, max=2).exp()
+        #dist = Categorical(logits=F.log_softmax(mu, dim=1))
+        #print(dist.logits)
+        #print(mu)
         return dist
 
     def sample_or_likelihood(self, states):
@@ -136,6 +143,8 @@ class PolicyNetwork(nn.Module, ABC):
         #u = dist.rsample()
         #action = torch.tanh(u)
         action = dist.sample()
+        #print(dist)
+        #print(action) #Debug print
         #log_prob = dist.log_prob(value=u)
         log_prob = dist.log_prob(action)
         # Enforcing action bounds

@@ -60,6 +60,7 @@ class SACAgent:
         states = from_numpy(states).float().to(self.device)
         action, _ = self.policy_network.sample_or_likelihood(states)
         #return action.detach().cpu().numpy()[0]
+        #print(action) #Deubg print
         return action 
 
     def store(self, state, z, done, action, next_state):
