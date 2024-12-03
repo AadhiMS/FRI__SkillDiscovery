@@ -118,11 +118,9 @@ class PolicyNetwork(nn.Module, ABC):
         x = F.relu(self.hidden1(states))
         x = F.relu(self.hidden2(x))
 
-        mu = self.mu(x)
-        log_std = self.log_std(x)
-        std = log_std.clamp(min=-20, max=2).exp()
-        dist = Normal(mu, std)
-        return dist
+        logits = self.logits(x); 
+        dist = Categorical(logits=logits)
+        return dist 
 
         # Old forward function 
         #x = F.relu(self.hidden1(states))
